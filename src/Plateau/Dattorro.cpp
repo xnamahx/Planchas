@@ -32,7 +32,7 @@ Dattorro::Dattorro() {
     _rightApf1Time = dattorroScale(_kRightApf1Time);
     _rightApf2Time = dattorroScale(_kRightApf2Time);
 
-    for(auto i = 0; i < 7; ++i) {
+    for(int i = 0; i < 7; ++i) {
         _scaledLeftTaps[i] = dattorroScale(_kLeftTaps[i]);
         _scaledRightTaps[i] = dattorroScale(_kRightTaps[i]);
     }
@@ -59,35 +59,25 @@ Dattorro::Dattorro() {
     _lfoDepth = dattorroScale(_kLfoExcursion);
 }
 
+void Dattorro::processLFO() {
+    _leftApf1.delay.delayTime = _lfo1.process() * _lfoDepth * modDepth + _leftApf1Time;
+    _leftApf2.delay.delayTime = _lfo2.process() * _lfoDepth * modDepth + _leftApf2Time;
+    _rightApf1.delay.delayTime = _lfo3.process() * _lfoDepth * modDepth + _rightApf1Time;
+    _rightApf2.delay.delayTime = _lfo4.process() * _lfoDepth * modDepth + _rightApf2Time;
+}
+
 void Dattorro::process(double leftInput, double rightInput) {
     if(!_freeze) {
         _decay = decay;
     }
-
-    _leftFilter.setCutoffFreq(reverbHighCut);
-    _leftHpf.setCutoffFreq(reverbLowCut);
-    _rightFilter.setCutoffFreq(reverbHighCut);
-    _rightHpf.setCutoffFreq(reverbLowCut);
-
-    _lfo1.setFrequency(_lfo1Freq * modSpeed);
-    _lfo2.setFrequency(_lfo2Freq * modSpeed);
-    _lfo3.setFrequency(_lfo3Freq * modSpeed);
-    _lfo4.setFrequency(_lfo4Freq * modSpeed);
 
     _leftApf1.gain = -plateDiffusion1;
     _leftApf2.gain = plateDiffusion2;
     _rightApf1.gain = -plateDiffusion1;
     _rightApf2.gain = plateDiffusion2;
 
-    _leftApf1.delay.delayTime = _lfo1.process() * _lfoDepth * modDepth + _leftApf1Time;
-    _leftApf2.delay.delayTime = _lfo2.process() * _lfoDepth * modDepth + _leftApf2Time;
-    _rightApf1.delay.delayTime = _lfo3.process() * _lfoDepth * modDepth + _rightApf1Time;
-    _rightApf2.delay.delayTime = _lfo4.process() * _lfoDepth * modDepth + _rightApf2Time;
-
     _leftInputDCBlock.input = leftInput;
     _rightInputDCBlock.input = rightInput;
-    _inputLpf.setCutoffFreq(inputHighCut);
-    _inputHpf.setCutoffFreq(inputLowCut);
     _inputLpf.input = _leftInputDCBlock.process() + _rightInputDCBlock.process();
     _inputHpf.input = _inputLpf.process();
     _inputHpf.process();

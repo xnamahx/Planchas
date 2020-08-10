@@ -12,6 +12,7 @@ class Dattorro {
 public:
     Dattorro();
     void process(double leftInput, double rightInput);
+    void processLFO();
     void clear();
     void setTimeScale(double timeScale);
     void setPreDelay(double time);
@@ -34,6 +35,25 @@ public:
     double decay = 0.9999;
     double modSpeed = 1.0;
     double diffuseInput = 0.0;
+
+    OnePoleLPFilter _leftFilter;
+    OnePoleHPFilter _leftHpf;
+    OnePoleLPFilter _rightFilter;
+    OnePoleHPFilter _rightHpf;
+
+    OnePoleLPFilter _inputLpf;
+    OnePoleHPFilter _inputHpf;
+
+    TriSawLFO _lfo1;
+    TriSawLFO _lfo2;
+    TriSawLFO _lfo3;
+    TriSawLFO _lfo4;
+
+    double _lfo1Freq = 0.10;
+    double _lfo2Freq = 0.150;
+    double _lfo3Freq = 0.120;
+    double _lfo4Freq = 0.180;
+
 private:
     double _timeScale = 1.0;
     double _preDelayTime = 0.0;
@@ -64,10 +84,7 @@ private:
 
     const double _kLfoExcursion = 16.0;
     double _lfoDepth = 0.0;
-    double _lfo1Freq = 0.10;
-    double _lfo2Freq = 0.150;
-    double _lfo3Freq = 0.120;
-    double _lfo4Freq = 0.180;
+
 
     const double _dattorroSampleRate = 29761.0;
     double _sampleRate = 44100.0;
@@ -78,8 +95,6 @@ private:
     bool _freeze = false;
     OnePoleHPFilter _leftInputDCBlock;
     OnePoleHPFilter _rightInputDCBlock;
-    OnePoleLPFilter _inputLpf;
-    OnePoleHPFilter _inputHpf;
 
     InterpDelay<double> _preDelay;
 
@@ -91,25 +106,18 @@ private:
 
     AllpassFilter<double> _leftApf1;
     InterpDelay<double> _leftDelay1;
-    OnePoleLPFilter _leftFilter;
-    OnePoleHPFilter _leftHpf;
+
     AllpassFilter<double> _leftApf2;
     InterpDelay<double> _leftDelay2;
 
     AllpassFilter<double> _rightApf1;
     InterpDelay<double> _rightDelay1;
-    OnePoleLPFilter _rightFilter;
-    OnePoleHPFilter _rightHpf;
+
     AllpassFilter<double> _rightApf2;
     InterpDelay<double> _rightDelay2;
 
     OnePoleHPFilter _leftOutDCBlock;
     OnePoleHPFilter _rightOutDCBlock;
-
-    TriSawLFO _lfo1;
-    TriSawLFO _lfo2;
-    TriSawLFO _lfo3;
-    TriSawLFO _lfo4;
 
     // Freeze Cross fade
     double _fade = 1.0;

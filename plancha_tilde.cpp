@@ -29,7 +29,7 @@ inline float clamp(float x, float a, float b) {
 }
 
 struct t_plancha {
-	t_object  x_obj;
+    t_pxobject m_obj;
 
     // CV scaling
     const float dryMin = 0.f;
@@ -60,6 +60,7 @@ struct t_plancha {
     float preDelay;
     float preDelayCVSens;
     float size;
+    float newsize;
     float diffusion;
     float decay;
     float inputSensitivity;
@@ -80,9 +81,8 @@ struct t_plancha {
     bool clear;
     bool cleared;
     bool fadeOut, fadeIn;
-
     double leftInput, rightInput;
-
+ 
     int tuned;
     float diffuseInput;
 
@@ -96,64 +96,53 @@ LinearEnvelope envelope;
 Dattorro reverb;
 
 void plancha_perform64(t_plancha* self, t_object* dsp64, double** ins, long numins, double** outs, long numouts, long sampleframes, long flags, void* userparam) {
-    if (numouts>0 && numins>0)
-    {
-	    double    *in = ins[0];     // first inlet
-	    double    *in2 = ins[1];     // first inlet
-	    double    *out = outs[0];   // first outlet
-	    double    *out2 = outs[1];   // first outlet
+    double    *in = ins[0];     // first inlet
+    double    *in2 = ins[1];     // first inlet
+    double    *out = outs[0];   // first outlet
+    double    *out2 = outs[1];   // first outlet
 
-	    
+    reverb.processLFO();
+    for (int i=0; i<sampleframes; ++i){
 
+        if (std::abs(self->size - self->newsize) > 0.01f)
+        {
+            self->size += (self->newsize - self->size) * 0.01f;
+            reverb.setTimeScale(self->size);
+        }else if(self->size != self->newsize){
+            self->size = self->newsize;
+            reverb.setTimeScale(self->size);
+        }
 
+        self->leftInput = *in++;
+        self->rightInput = *in2++;
 
+        envelope.process();
 
+        reverb.process(self->leftInput * envelope._value, self->rightInput * envelope._value);
 
-        /*if(self->clear) {
-            if(!self->cleared && !self->fadeOut && !self->fadeIn) {
-                self->fadeOut = true;
-                envelope.setStartEndPoints(1.f, 0.f);
-                envelope.trigger();
-            }
-            if(self->fadeOut && envelope._justFinished) {
-                reverb.clear();
-                self->fadeOut = false;
-                self->fadeIn = true;
-                envelope.setStartEndPoints(0.f, 1.f);
-                envelope.trigger();
-            }
-            if(self->fadeIn && envelope._justFinished) {
-                self->fadeIn = false;
-                self->cleared = true;
-                envelope._value = 1.f;
-            }
-        }*/
-		
+        *out++ = SoftClip((self->leftInput * self->dry + reverb.leftOut * self->wet * envelope._value) * 0.19f);
+        *out2++ = SoftClip((self->rightInput * self->dry + reverb.rightOut * self->wet * envelope._value) * 0.19f);
+    }
 
-		for (auto i=0; i<sampleframes; ++i){
-			self->leftInput = *in++;
-			self->rightInput = *in2++;
-
-			envelope.process();
-		    reverb.process(self->leftInput * envelope._value, self->rightInput * envelope._value);
-
-			*out++ = tanhDriveSignal((self->leftInput * self->dry + reverb.leftOut * self->wet * envelope._value) * 0.111f, 0.95f);
-	        *out2++ = tanhDriveSignal((self->rightInput * self->dry + reverb.rightOut * self->wet * envelope._value) * 0.111f, 0.95f);
-		}
-
-	}
 }
 
 void* plancha_new(void) {
 	t_plancha* self = (t_plancha*) object_alloc(this_class);
+
+    dsp_setup((t_pxobject*)self, 2);
+
+    outlet_new(self, "signal");
+    outlet_new(self, "signal");
+    inlet_new(self, NULL);
+
 
     reverb.setSampleRate(DEFAULT_SAMPLE_RATE);
     envelope.setSampleRate(DEFAULT_SAMPLE_RATE);
     envelope.setTime(0.004f);
     envelope._value = 1.f;
 
-    self->wet = 0.5f;
-    self->dry = 1.f;
+    self->wet = 1.f;
+    self->dry = 0.f;
     self->preDelay = 0.f;
     self->size = 1.f;
     self->diffusion = 1.f;
@@ -175,9 +164,6 @@ void* plancha_new(void) {
     self->fadeIn = false;
     self->tuned = 0;
     self->diffuseInput = 1.0f;
-
-    self->leftInput = 0.f;
-    self->rightInput = 0.f;
 
     if(self->freeze && !self->frozen) {
         self->frozen = true;
@@ -206,11 +192,7 @@ void* plancha_new(void) {
     reverb.modDepth = self->modDepth;
     reverb.setModShape(self->modShape);
 
-	outlet_new(self, "signal");
-	outlet_new(self, "signal");
-	inlet_new(self, NULL);
 
-	dsp_setup((t_pxobject*)self, 2);
 
 	return (void *)self;
 }
@@ -261,10 +243,6 @@ void plancha_diffusion(t_plancha *x, double f)
 void plancha_clear(t_plancha *x, double f)
 {
     x->clear = f > 0.5f;
-    object_post((t_object *) &x->x_obj, "plancha_clear");
-    std::string s = std::to_string(x->clear);
-    object_post((t_object *) &x->x_obj, s.c_str());
-
 }
 
 void plancha_predelay(t_plancha *x, double f)
@@ -275,8 +253,10 @@ void plancha_predelay(t_plancha *x, double f)
 
 void plancha_size(t_plancha *x, double f)
 {	    
-	x->size = f;
-    reverb.setTimeScale(x->size);
+
+        float size = f;
+        size *= size;
+        x->newsize = rescale(size, 0.f, 1.f, 0.01f, x->sizeMax) * 40.0f;
 }	    
 
 void plancha_decay(t_plancha *x, double f)
@@ -292,14 +272,14 @@ void plancha_inputDampLow(t_plancha *x, double f)
     x->inputDampLow = clamp(f * 10.0f, 0.f, 10.f);
     x->inputDampLow = 10.f - x->inputDampLow;
     reverb.inputLowCut = 440.f * powf(2.f, x->inputDampLow - 5.f);
+    reverb._inputHpf.setCutoffFreq(reverb.inputLowCut);
 }
 
 void plancha_inputDampHigh(t_plancha *x, double f)
 {
     x->inputDampHigh = clamp(f * 10 , 0.f, 10.f);
     reverb.inputHighCut = 440.f * powf(2.f, x->inputDampHigh - 5.f);
-
-
+    reverb._inputLpf.setCutoffFreq(reverb.inputHighCut);
     /*object_post((t_object *) &x->x_obj, "plancha_inputDampHigh");
     std::string s = std::to_string(x->inputDampHigh);
     object_post((t_object *) &x->x_obj, s.c_str());*/
@@ -310,18 +290,27 @@ void plancha_reverbDampLow(t_plancha *x, double f)
     x->reverbDampLow = clamp(f * 10.0f, 0.f, 10.f);
     x->reverbDampLow = 10.f - x->reverbDampLow;
     reverb.reverbLowCut = 440.f * powf(2.f, x->reverbDampLow - 5.f);
+    reverb._leftHpf.setCutoffFreq(reverb.reverbLowCut);
+    reverb._rightHpf.setCutoffFreq(reverb.reverbLowCut);
 }
 
 void plancha_reverbDampHigh(t_plancha *x, double f)
 {
     x->reverbDampHigh = clamp(f * 10.0f, 0.f, 10.f);
     reverb.reverbHighCut = 440.f * powf(2.f, x->reverbDampHigh - 5.f);
+    reverb._leftFilter.setCutoffFreq(reverb.reverbHighCut);
+    reverb._rightFilter.setCutoffFreq(reverb.reverbHighCut);
 }
 
 void plancha_modSpeed(t_plancha *x, double f)
 {
     x->modSpeed = f * 99 + 1;
     reverb.modSpeed = x->modSpeed;
+
+    reverb._lfo1.setFrequency(reverb._lfo1Freq * reverb.modSpeed);
+    reverb._lfo2.setFrequency(reverb._lfo2Freq * reverb.modSpeed);
+    reverb._lfo3.setFrequency(reverb._lfo3Freq * reverb.modSpeed);
+    reverb._lfo4.setFrequency(reverb._lfo4Freq * reverb.modSpeed);
 }
 
 void plancha_modShape(t_plancha *x, double f)

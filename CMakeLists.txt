@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.0)
 
-include(${CMAKE_CURRENT_SOURCE_DIR}/../../max-api/script/max-pretarget.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/../../min-api/script/min-pretarget.cmake)
 
 include_directories( 
 	"${C74_INCLUDES}"
@@ -16,7 +16,7 @@ set(DATTORRO_SRC
        src/Common/DSP/OnePoleFilters.cpp
        )
 
-add_library(LIB ${DATTORRO_SRC} )
+add_library(LIBDATORRO ${DATTORRO_SRC} )
 
 add_library( 
 	${PROJECT_NAME} 
@@ -24,6 +24,6 @@ add_library(
 	${PROJECT_NAME}.cpp
 )
 
-target_link_libraries(${PROJECT_NAME} LIB)
+target_link_libraries(${PROJECT_NAME} LIBDATORRO)
 
-include(${CMAKE_CURRENT_SOURCE_DIR}/../../max-api/script/max-posttarget.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/../../min-api/script/min-posttarget.cmake)
